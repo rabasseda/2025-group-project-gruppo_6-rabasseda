@@ -44,7 +44,7 @@ body {
 
 /* STILE DELLA NAVBAR */
 .navbar {
-  background-color: #f0e0cc; 
+  background-color: #e2d9cd; 
   width: 100%;
   padding: 18px clamp(10px, 4vw, 48px); 
   position: sticky; 
@@ -96,24 +96,31 @@ header p {
   font-size: clamp(20px, 2.2vw, 18px);
 }
 
-/* Layout Card */
-.rows {
-  display: grid;
-  gap: clamp(18px, 2.2vw, 24px);
-}
+/* Sostituisci le regole .rows e .row con queste: */
 
-.row {
+.team-grid {
   display: flex;
-  flex-wrap: nowrap;
-  justify-content: center; 
-  gap: clamp(16px, 2.2vw, 24px);
+  flex-wrap: wrap;
+  justify-content: center; /* Centro tutto*/
+  gap: 24px; /* Spazio fisso per calcoli piÃ¹ facili */
+  
+  width: 100%;
+  margin: 0 auto;
+  
+  max-width: 1150px; 
 }
 
 .card {
+  flex: 0 1 240px; 
+  width: 240px;
   width: var(--card-w);
   aspect-ratio: var(--card-aspect);
   border-radius: var(--radius-outer);
-  background: #f3f0dd;
+
+  background-color: transparent;
+  background-size: cover;
+  background-position: center;
+
   box-shadow: var(--shadow);
   padding: var(--pad);
   display: flex;
@@ -126,10 +133,6 @@ header p {
   transform: translateY(-3px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
 }
-
-.c1 { background: #c19e7f; } .c2 { background: #7f9cb0; } .c3 { background: #b7ab5a; }
-.c4 { background: #ac6b7f; } .c5 { background: #71a568; } .c6 { background: #a182a8; }
-.c7 { background: #6889b1; }
 
 .card::after {
   content: "";
