@@ -448,38 +448,12 @@ function drawTooltip(index) {
 }
 
 function mouseClicked() {
-  if (isPopupOpen) {
-    const popX = width / 2;
-    const popY = height / 2;
-    const margin = 30; 
-    
-    const boxLeft = popX - POPUP_WIDTH / 2;
-    const boxTop = popY - POPUP_HEIGHT / 2;
-    
-    const closeBtnX = boxLeft + POPUP_WIDTH - margin;
-    const closeBtnY = boxTop + margin;
-    const btnSize = 30;
-
-    if (dist(mouseX, mouseY, closeBtnX, closeBtnY) < btnSize) {
-      isPopupOpen = false;
-      return;
-    }
-    return;
-  }
-  
-  if (!isPopupOpen && wheelProgress >= 1.0) {
-    for (let b of infoIconBounds) {
-      if (dist(mouseX, mouseY, b.x, b.y) < 15) {
-        currentPopupContent = popupData[b.k];
-        isPopupOpen = true;
-        return;
-      }
-    }
-  }
-
   // NAVIGAZIONE AL CLICK DELLO SPICCHIO
-  if (!isPopupOpen && wheelProgress >= 1.0 && hoveredAreaIndex !== -1) {
-    window.location.href = "../dettaglio/index.html";
+  if (hoveredAreaIndex !== -1 && !isPopupOpen && wheelProgress >= 0.98) {
+    const areaName = areas[hoveredAreaIndex].area;
+    const slug = areaName.toLowerCase().replace(/\s+/g, "-");
+
+    window.location.href = `../dettaglio/index.html?area=${slug}`;
   }
 }
 
@@ -509,7 +483,7 @@ function drawTitle() {
 function drawLegend() {
   push();
   textStyle(NORMAL); 
-  if (wheelProgress >= 1.0) infoIconBounds = []; 
+  if (wheelProgress >= 0.98) infoIconBounds = []; 
 
   const legendX = 60; 
   

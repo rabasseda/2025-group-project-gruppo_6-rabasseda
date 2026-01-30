@@ -1,10 +1,11 @@
 let data_aree, data_animali, data_piante, data_funghi, data_cromisti;
 let areas = [];
-let selectedArea = "south america"; 
+let selectedArea = "south america"; // fallback
 let menuOpen = false;
 let petalShapes = {};
 let centerShapes = {};
 let customFont;
+let causeMap = {};
 
 const COLORS = {
   Animalia: "#B96A82",
@@ -75,6 +76,11 @@ function preload() {
 }
 
 function setup() {
+  const areaFromURL = getAreaFromURL();
+  if (areaFromURL) {
+    selectedArea = normalizeAreaName(areaFromURL);
+  }
+
   // Calcolo l’altezza totale necessaria in base al layout dei fiori
   let marginTop = 280;     // margine superiore
   let spacingY = 400;      // distanza verticale tra le righe
@@ -89,9 +95,21 @@ function setup() {
 
   for (let r = 0; r < data_aree.getRowCount(); r++) {
     let area = data_aree.getString(r, 0);
-    if (area && area.toLowerCase() !== "total") areas.push(area.toLowerCase());
+    if (area && area.toLowerCase() !== "total") areas.push(normalizeAreaName(area));
   }
-  causes = data_animali.columns.slice(1, -1);
+
+  // 1. Lista maestra di cause (normalizzate)
+  causes = data_animali.columns
+    .slice(1) // salta la colonna "Area"
+    .map(normalizeCause);
+
+  // 2. Mappa cause → colonne reali per ogni regno
+  causeMap = {
+    Animalia: buildCauseMap(data_animali),
+    Plantae: buildCauseMap(data_piante),
+    Fungi: buildCauseMap(data_funghi),
+    Chromista: buildCauseMap(data_cromisti)
+  };
 
   // Precalcolo forme statiche per ogni regno e causa
   for (let regno of ["Animalia","Plantae","Fungi","Chromista"]) {
@@ -130,6 +148,21 @@ function setup() {
   }
 }
 
+function normalizeCause(name) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function buildCauseMap(table) {
+  let map = {};
+  for (let col of table.columns) {
+    map[normalizeCause(col)] = col;
+  }
+  return map;
+}
+
 function windowResized() {
   let marginTop = 280;
   let spacingY = 400;
@@ -158,6 +191,15 @@ function draw() {
 
   // 6. Menu sopra a tutto
   if (menuOpen) drawDropdownMenu();
+}
+
+function getAreaFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  let area = params.get("area");
+
+  if (!area) return null;
+
+  return area.replace(/-/g, " ").toLowerCase();
 }
 
 function drawHeader() {
@@ -260,10 +302,10 @@ function drawKingdomFlowers() {
   let angleStep = TWO_PI / causes.length;
 
   // Layout a tabella 2x2, più in basso e con più margine a sinistra
-  let marginLeft = 260;   // margine sinistro aumentato
-  let marginTop = 280;    // margine superiore → fiori più in basso
-  let spacingX = 420;     // distanza orizzontale
-  let spacingY = 400;     // distanza verticale
+  let marginLeft = 260; // margine sinistro aumentato
+  let marginTop = 280; // margine superiore → fiori più in basso
+  let spacingX = 420; // distanza orizzontale
+  let spacingY = 400; // distanza verticale
 
   let maxPossibleRadius = min(spacingX, spacingY) / 2 - 40; // ridotto per scala più compatta
   let maxPetalLengthLimit = maxPossibleRadius - centerRadius;
@@ -280,17 +322,25 @@ function drawKingdomFlowers() {
 
     let hasData = false;
     let maxValInRow = 0;
-    for (let c of causes) {
-      let val = int(row.get(c));
+
+    let map = causeMap[regno];
+
+    for (let causa of causes) {
+      let realCol = map[causa];
+      if (!realCol) continue;
+
+      let raw = row.get(realCol);
+      let val = raw ? int(raw) : 0;
+
       if (val > 0) {
         hasData = true;
         if (val > maxValInRow) maxValInRow = val;
       }
     }
+
     if (!hasData) continue; 
     if (maxValInRow === 0) maxValInRow = 1;
 
-    // posizione in griglia 2x2
     let col = k % 2;
     let rowIdx = floor(k / 2);
     let centerX = marginLeft + col * spacingX;
@@ -304,14 +354,17 @@ function drawKingdomFlowers() {
     // --- PETALI ---
     for (let i = 0; i < causes.length; i++) {
       let causa = causes[i];
-      let val = int(row.get(causa));
-      if (val === 0) continue; 
+      let realCol = map[causa];
+      if (!realCol) continue;
+
+      let raw = row.get(realCol);
+      let val = raw ? int(raw) : 0;
+      if (val === 0) continue;
       
       // curva logaritmica + scala ridotta
       let normVal = log(val + 1) / log(maxValInRow + 1);
       let petalLength = (80 + normVal * (maxPetalLengthLimit * 1.5 - 80)) * 0.8;
-
-      let angle = i * angleStep - HALF_PI; 
+      let angle = i * angleStep - HALF_PI;
 
       let isFlowerHovered = (hoveredCause && hoveredCause.kingdom === regno);
       let isThisPetalHovered = (isFlowerHovered && hoveredCause.cause === causa);
@@ -414,7 +467,6 @@ function drawKingdomFlowers() {
   }
 }
 
-
 function mouseMoved() {
   hoveredCause = null;
   let isPointer = false; // flag per decidere se mostrare la mano
@@ -432,7 +484,7 @@ function mouseMoved() {
   let maxPossibleRadius = min(spacingX, spacingY) / 2 - 40;
   let maxPetalLengthLimit = maxPossibleRadius - centerRadius;
 
-  let minPetalMidRadius = centerRadius + 60;
+  let minPetalMidRadius = centerRadius + 60; 
   let availableArc = (minPetalMidRadius * TWO_PI) / causes.length;
   let dynamicPetalWidth = min(65, availableArc * 0.95);
 
@@ -447,8 +499,13 @@ function mouseMoved() {
 
     let maxValInRow = 0;
     for (let c of causes) {
-      let v = int(row.get(c));
-      if (v > maxValInRow) maxValInRow = v;
+      let realCol = causeMap[regno][c];
+      if (!realCol) continue;
+
+      let raw = row.get(realCol);
+      let val = raw ? int(raw) : 0;
+
+      if (val > maxValInRow) maxValInRow = val;
     }
     if (maxValInRow === 0) maxValInRow = 1;
 
@@ -461,7 +518,11 @@ function mouseMoved() {
 
     for (let i = 0; i < causes.length; i++) {
       let causa = causes[i];
-      let val = int(row.get(causa));
+      let realCol = causeMap[regno][causa];
+      if (!realCol) continue;
+
+      let raw = row.get(realCol);
+      let val = raw ? int(raw) : 0;
       if (val === 0) continue;
 
       let normVal = log(val + 1) / log(maxValInRow + 1);
@@ -492,39 +553,9 @@ function mouseMoved() {
     }
   }
 
-  // --- LOGICA MENU ---
-  const sz = constrain(width * 0.05, 30, 60);
-  const x = width * 0.63;
-  const y = sz * 1.2;
-  const titoloY2 = y + sz * 1.2;
-  const titoloY3 = titoloY2 + sz * 1.2;
-
-  textFont(customFont);
-  textStyle(NORMAL);
-
-  textSize(sz * 0.7);
-  const label = toTitleCase(selectedArea);
-  const padding = 40;
-  const menuW = textWidth(label) + padding;
-  const menuH = sz * 0.9;
-
-  textSize(sz);
-  const menuX = x + textWidth("in ") + 10;
-  const menuY = titoloY3;
-
-  if ((mouseX > menuX && mouseX < menuX + menuW &&
-       mouseY > menuY && mouseY < menuY + menuH) ||
-      (menuOpen && mouseY > menuY + menuH && mouseY < menuY + menuH + areas.length * menuH &&
-       mouseX > menuX && mouseX < menuX + menuW)) {
-    isPointer = true; // siamo sopra il menu o una voce
-  }
-
-  // --- DECISIONE FINALE CURSORE ---
-  if (isPointer) {
-    cursor(HAND);
-  } else {
-    cursor(ARROW);
-  }
+  // --- MENU E CURSORE ---
+  if (isPointer) cursor(HAND);
+  else cursor(ARROW);
 }
 
 function mousePressed() {
@@ -650,8 +681,6 @@ function drawOverlay(causeKey) {
   overlayCloseBounds = {x: closeCx, y: closeCy, size: btnSize};
 }
 
-
-
 function getDatasetByKingdom(regno) {
     if (regno === "Animalia") return data_animali;
     if (regno === "Plantae")  return data_piante;
@@ -660,15 +689,47 @@ function getDatasetByKingdom(regno) {
     return null;
 }
   
-function getRowByArea(table, areaLower) {
+function normalizeAreaName(str) {
+  return str
+    .toLowerCase()
+    .trim()
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ");
+}
+
+function getRowByArea(table, areaFromURL) {
+  const target = normalizeAreaName(areaFromURL); // area selezionata
+  let bestMatch = null;
+  let bestScore = 0;
+
   for (let r = 0; r < table.getRowCount(); r++) {
     let name = table.getString(r, 0);
     if (!name) continue;
-    if (name.trim().toLowerCase() === areaLower.trim().toLowerCase()) {
-      return table.getRow(r);
+
+    let normalizedName = normalizeAreaName(name);
+
+    // Se il nome contiene l'area cercata → corrispondenza parziale
+    if (normalizedName.includes(target)) {
+      return table.getRow(r); // corrispondenza parziale sufficiente
+    }
+
+    // Se vuoi una corrispondenza più accurata, puoi contare le lettere che avete in comune.
+    let common = 0;
+    let minLen = min(normalizedName.length, target.length);
+    for (let i = 0; i < minLen; i++) {
+      if (normalizedName[i] === target[i]) common++;
+    }
+    if (common > bestScore) {
+      bestScore = common;
+      bestMatch = table.getRow(r);
     }
   }
-  return null;
+
+  if (!bestMatch) {
+    console.warn("No se encontró zona para:", areaFromURL);
+  }
+
+  return bestMatch;
 }
   
 function toTitleCase(s) {
@@ -770,5 +831,3 @@ function drawLegend() {
 
   pop();
 }
-
-
