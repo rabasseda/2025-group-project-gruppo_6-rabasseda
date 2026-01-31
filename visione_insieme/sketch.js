@@ -448,6 +448,38 @@ function drawTooltip(index) {
 }
 
 function mouseClicked() {
+  // CLICK SULLA X DEL POPUP
+  if (isPopupOpen) {
+    const popX = width / 2;
+    const popY = height / 2;
+    const margin = 30;
+    const btnSize = 30;
+
+    const boxLeft = popX - POPUP_WIDTH / 2;
+    const boxTop = popY - POPUP_HEIGHT / 2;
+
+    const closeBtnX = boxLeft + POPUP_WIDTH - margin;
+    const closeBtnY = boxTop + margin;
+
+    if (dist(mouseX, mouseY, closeBtnX, closeBtnY) < btnSize / 2) {
+      isPopupOpen = false;
+      currentPopupContent = null;
+      return;
+    }
+  }
+  
+  // CLICK SULL’ICONA "i"
+  for (let b of infoIconBounds) {
+    if (dist(mouseX, mouseY, b.x, b.y) < b.size) {
+
+      // APRI IL POPUP CON IL CONTENUTO CORRETTO
+      currentPopupContent = popupData[b.k];
+      isPopupOpen = true;
+
+      return; // BLOCCA ALTRI CLICK
+    }
+  }
+
   // NAVIGAZIONE AL CLICK DELLO SPICCHIO
   if (hoveredAreaIndex !== -1 && !isPopupOpen && wheelProgress >= 0.98) {
     const areaName = areas[hoveredAreaIndex].area;
@@ -601,11 +633,26 @@ function drawReferenceCircles() {
         circle(0, 0, r * 2);
         drawingContext.setLineDash([]); 
         
-        fill(textColor); 
-        noStroke(); 
-        textSize(10);
-        textAlign(LEFT, CENTER);
-        text(val, r + 5, 0); 
+        // --- TESTO CURVO ATTORNO AL CERCHIO ---
+        const label = String(val);
+        const angle = -PI * 78 / 180; // posizione: sopra al cerchio (78 gradi)
+        const textRadius = r + 8; // distanza dal cerchio
+
+        push();
+        translate(
+          cos(angle) * textRadius,
+          sin(angle) * textRadius
+        );
+
+        // Ruota il testo seguendo la tangente del cerchio
+        rotate(angle + HALF_PI);
+
+        fill(100); // stesso tono del cerchio
+        noStroke();
+        textSize(12);
+        textAlign(CENTER, CENTER);
+        text(label, 0, 0);
+        pop();
     }
   }
   pop();
